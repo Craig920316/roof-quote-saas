@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roof Quote Admin</title>
+  <style>
+    body { font-family: Calibri, sans-serif; margin: 20px; text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+    th { background-color: #f1f1f1; }
+  </style>
+</head>
+<body>
+  <h2>Leads</h2>
+  <table id="leads-table">
+    <thead>
+      <tr><th>Name</th><th>Email</th><th>Phone</th><th>Quote</th></tr>
+    </thead>
+    <tbody id="leads-body"></tbody>
+  </table>
+  <script>
+    fetch("/leads")
+      .then(res => res.json())
+      .then(leads => {
+        const tbody = document.getElementById("leads-body");
+        leads.forEach(lead => {
+          const row = document.createElement("tr");
+          row.innerHTML = `<td>${lead.name}</td><td>${lead.email}</td><td>${lead.phone}</td><td>${lead.quote}</td>`;
+          tbody.appendChild(row);
+        });
+      });
+  </script>
+</body>
+</html>

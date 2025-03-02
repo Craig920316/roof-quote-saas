@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roof Quote Generator</title>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAJM-GhCQVg2gZ7JGrDsoYCWVi0XyDzQcc&libraries=geometry,places,drawing"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    body, html { margin: 0; padding: 0; height: 100%; font-family: Calibri, sans-serif; overflow: hidden; }
+    .feature-container { width: 100%; max-width: 1200px; margin: 0 auto; border: 2px solid #ccc; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); padding: 20px; background-color: #fff; box-sizing: border-box; }
+    .container { display: flex; height: calc(100vh - 80px); }
+    #map { flex: 1; height: 100%; }
+    #controls { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 15px; background-color: white; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3); border-left: 2px solid #ccc; box-sizing: border-box; overflow-y: auto; }
+    #address-label { font-size: 18px; font-weight: bold; text-align: center; margin-bottom: 10px; color: black; }
+    #address-input { width: 100%; height: 35px; font-size: 16px; padding: 5px; margin-bottom: 10px; box-sizing: border-box; }
+    button { width: 100%; padding: 8px; font-size: 14px; margin-bottom: 5px; cursor: pointer; border: 1px solid #ccc; background-color: #f1f1f1; border-radius: 15px; font-family: Calibri, sans-serif; }
+    button:hover { background-color: #e1e1e1; }
+    #area-display { display: none; margin-top: 15px; font-size: 16px; font-weight: bold; text-align: center; color: #333; }
+    #roof-type-container, #material-container, #pricing-editor { width: 100%; margin-top: 20px; padding: 10px; border: 2px solid #ccc; border-radius: 10px; background-color: #f9f9f9; box-sizing: border-box; text-align: center; }
+    #roof-type-label, #material-label, #pricing-editor h3 { font-size: 18px; font-weight: bold; margin-bottom: 10px; color: black; }
+    .roof-type-button-container { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    .roof-type-button { width: 80px; height: 80px; margin: 8px; font-size: 12px; background-color: #f1f1f1; border: 1px solid #ccc; border-radius: 15px; cursor: pointer; font-family: Calibri, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; color: black; text-align: center; padding: 5px; }
+    .roof-type-button:hover { background-color: #e1e1e1; }
+    .roof-type-button.selected { background-color: #c1e7e6; font-weight: bold; }
+    .roof-type-button i { font-size: 30px; margin-bottom: 5px; }
+    #material-container select, #pricing-editor input { width: 100%; padding: 8px; margin-bottom: 10px; }
+    #quote-display { display: none; margin-top: 15px; font-size: 16px; font-weight: bold; text-align: center; color: #333; }
+    #pricing-editor { display: none; }
+  </style>
+</head>
+<body>
+  <div class="feature-container">
+    <div class="container">
+      <div id="controls">
+        <div id="address-label">Enter Your Address</div>
+        <input id="address-input" type="text" placeholder="Enter an address" />
+        <button id="search-btn">Search</button>
+        <button id="calculate-area-btn">Calculate Area</button>
+        <button id="manual-draw-btn">Manual Draw</button>
+        <button id="reset-btn">Reset</button>
+        <div id="area-display">Roof area: N/A</div>
+
+        <div id="roof-type-container">
+          <div id="roof-type-label">Roof Type</div>
+          <div class="roof-type-button-container">
+            <div class="roof-type-button" id="flat-btn"><i class="fas fa-home"></i>Flat</div>
+            <div class="roof-type-button" id="standard-btn"><i class="fas fa-home"></i>Standard</div>
+            <div class="roof-type-button" id="steep-btn"><i class="fas fa-home"></i>Steep</div>
+          </div>
+        </div>
+
+        <button id="next-btn">Next</button>
+
+        <div id="material-container" style="display: none;">
+          <div id="material-label">Select Materials</div>
+          <select id="tile-type"></select>
+          <select id="gutter"></select>
+          <select id="trim"></select>
+          <button id="generate-quote-btn">Generate Quote</button>
+          <div id="quote-display"></div>
+        </div>
+
+        <div id="pricing-editor" style="display: none;">
+          <h3>Edit Pricing</h3>
+          <input id="tile-asphalt" type="number" placeholder="Asphalt ($/sqft)">
+          <input id="tile-metal" type="number" placeholder="Metal ($/sqft)">
+          <input id="tile-tile" type="number" placeholder="Tile ($/sqft)">
+          <input id="gutter-basic" type="number" placeholder="Guttering ($/ft)">
+          <input id="trim-standard" type="number" placeholder="Trim ($/ft)">
+          <button id="save-pricing-btn">Save Pricing</button>
+        </div>
+        <button id="toggle-editor-btn">Edit Pricing</button>
+
+        <div id="lead-capture" style="display: none; margin-top: 20px; text-align: center;">
+          <h3>Request Your Quote</h3>
+          <input type="text" id="lead-name" placeholder="Your Name" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+          <input type="email" id="lead-email" placeholder="Your Email" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+          <input type="tel" id="lead-phone" placeholder="Your Phone" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+          <button id="submit-lead-btn">Submit</button>
+        </div>
+      </div>
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <script>
+    let map, drawingManager, drawnPolygon = null, selectedRoofType = null, roofArea = 0;
+    let customPricing = { tiles: {}, gutter: {}, trim: {} };
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: 54.5, lng: -3 },
+        zoom: 6,
+        mapTypeId: 'satellite'
+      });
+
+      let autocomplete = new google.maps.places.Autocomplete(document.getElementById("address-input"));
+      autocomplete.bindTo("bounds", map);
+      autocomplete.addListener("place_changed", () => {
+        let place = autocomplete.getPlace();
+        if (!place.geometry) {
+          alert("No details available for that location.");
+          return;
+        }
+        map.setCenter(place.geometry.location);
+        map.setZoom(17);
+      });
+
+      drawingManager = new google.maps.drawing.DrawingManager({
+        drawingMode: null,
+        drawingControl: false,
+        polygonOptions: {
+          fillColor: "#FF0000",
+          fillOpacity: 0.4,
+          strokeWeight: 2,
+          clickable: true,
+          editable: true,
+          zIndex: 1
+        }
+      });
+      drawingManager.setMap(map);
+
+      google.maps.event.addListener(drawingManager, 'overlaycomplete', function(event) {
+        if (drawnPolygon) {
+          drawnPolygon.setMap(null);
+        }
+        drawnPolygon = event.overlay;
+        drawingManager.setDrawingMode(null);
+        roofArea = google.maps.geometry.spherical.computeArea(drawnPolygon.getPath());
+        document.getElementById("area-display").textContent = `Roof area: ${roofArea.toFixed(2)} m²`;
+        document.getElementById("area-display").style.display = "block";
+      });
+
+      document.getElementById("search-btn").addEventListener("click", () => {
+        let address = document.getElementById("address-input").value;
+        let geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ address: address }, (results, status) => {
+          if (status === "OK") {
+            map.setCenter(results[0].geometry.location);
+            map.setZoom(17);
+          } else {
+            alert("Address not found.");
+          }
+        });
+      });
+
+      document.getElementById("manual-draw-btn").addEventListener("click", () => {
+        drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+      });
+
+      document.getElementById("calculate-area-btn").addEventListener("click", () => {
+        if (!drawnPolygon) {
+          alert("Please draw a roof area first.");
+        }
+      });
+
+      document.getElementById("reset-btn").addEventListener("click", () => {
+        if (drawnPolygon) {
+          drawnPolygon.setMap(null);
+          drawnPolygon = null;
+        }
+        document.getElementById("area-display").style.display = "none";
+        document.getElementById("roof-type-container").style.display = "block";
+        document.getElementById("material-container").style.display = "none";
+        document.getElementById("next-btn").style.display = "block";
+        document.getElementById("quote-display").style.display = "none";
+        document.getElementById("pricing-editor").style.display = "none";
+      });
+
+      document.getElementById("next-btn").addEventListener("click", () => {
+        if (!drawnPolygon || !selectedRoofType) {
+          alert("Please draw a roof area and select a roof type first.");
+          return;
+        }
+        document.getElementById("roof-type-container").style.display = "none";
+        document.getElementById("material-container").style.display = "block";
+        document.getElementById("next-btn").style.display = "none";
+        fetchPricing("company1");
+      });
+
+      document.querySelectorAll(".roof-type-button").forEach(button => {
+        button.addEventListener("click", function () {
+          document.querySelectorAll(".roof-type-button").forEach(btn => btn.classList.remove("selected"));
+          this.classList.add("selected");
+          selectedRoofType = this.innerText.trim();
+        });
+      });
+
+      document.getElementById("generate-quote-btn").addEventListener("click", () => {
+        const tileType = document.getElementById("tile-type").value;
+        const gutter = document.getElementById("gutter").value;
+        const trim = document.getElementById("trim").value;
+
+        const areaSqft = roofArea * 10.764;
+        const tileCost = customPricing.tiles[tileType];
+        const gutterCost = customPricing.gutter[gutter] * (areaSqft / 20);
+        const trimCost = customPricing.trim[trim] * (areaSqft / 20);
+        const roofTypeMultiplier = { Flat: 1, Standard: 1.2, Steep: 1.5 };
+
+        const baseCost = areaSqft * tileCost;
+        const total = (baseCost * roofTypeMultiplier[selectedRoofType]) + gutterCost + trimCost;
+
+        document.getElementById("quote-display").textContent = `Total Quote: $${total.toFixed(2)}`;
+        document.getElementById("quote-display").style.display = "block";
+
+        // Show lead capture form in widget mode
+        if (window.location.pathname.includes("widget.html")) {
+          document.getElementById("lead-capture").style.display = "block";
+        }
+      });
+
+      document.getElementById("submit-lead-btn").addEventListener("click", () => {
+        const name = document.getElementById("lead-name").value;
+        const email = document.getElementById("lead-email").value;
+        const phone = document.getElementById("lead-phone").value;
+        const quote = document.getElementById("quote-display").textContent;
+
+        fetch("/submit-lead", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, phone, quote })
+        }).then(() => {
+          alert("Lead submitted! The roofer will contact you soon.");
+          document.getElementById("lead-capture").style.display = "none";
+        });
+      });
+
+      document.getElementById("toggle-editor-btn").addEventListener("click", () => {
+        const editor = document.getElementById("pricing-editor");
+        editor.style.display = editor.style.display === "none" ? "block" : "none";
+      });
+
+      document.getElementById("save-pricing-btn").addEventListener("click", () => {
+        const newPricing = {
+          tiles: {
+            asphalt: parseFloat(document.getElementById("tile-asphalt").value) || 2,
+            metal: parseFloat(document.getElementById("tile-metal").value) || 5,
+            tile: parseFloat(document.getElementById("tile-tile").value) || 7
+          },
+          gutter: {
+            none: 0,
+            basic: parseFloat(document.getElementById("gutter-basic").value) || 10
+          },
+          trim: {
+            none: 0,
+            standard: parseFloat(document.getElementById("trim-standard").value) || 5
+          }
+        };
+        fetch("/pricing/company1", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newPricing)
+        }).then(() => {
+          customPricing = newPricing;
+          loadPricing();
+          alert("Pricing saved!");
+        });
+      });
+
+      fetchPricing("company1");
+    }
+
+    function fetchPricing(companyId) {
+      fetch(`/pricing/${companyId}`)
+        .then(response => response.json())
+        .then(data => {
+          customPricing = data;
+          loadPricing();
+        })
+        .catch(() => {
+          customPricing = { tiles: { asphalt: 2, metal: 5, tile: 7 }, gutter: { none: 0, basic: 10 }, trim: { none: 0, standard: 5 } };
+          loadPricing();
+        });
+    }
+
+    function loadPricing() {
+      const tileSelect = document.getElementById("tile-type");
+      const gutterSelect = document.getElementById("gutter");
+      const trimSelect = document.getElementById("trim");
+
+      tileSelect.innerHTML = Object.entries(customPricing.tiles)
+        .map(([type, cost]) => `<option value="${type}">${type.charAt(0).toUpperCase() + type.slice(1)} ($${cost}/sqft)</option>`)
+        .join("");
+      gutterSelect.innerHTML = Object.entries(customPricing.gutter)
+        .map(([type, cost]) => `<option value="${type}">${type.charAt(0).toUpperCase() + type.slice(1)} ($${cost}/ft)</option>`)
+        .join("");
+      trimSelect.innerHTML = Object.entries(customPricing.trim)
+        .map(([type, cost]) => `<option value="${type}">${type.charAt(0).toUpperCase() + type.slice(1)} ($${cost}/ft)</option>`)
+        .join("");
+    }
+
+    window.onload = initMap;
+  </script>
+</body>
+</html>

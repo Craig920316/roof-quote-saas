@@ -1,0 +1,17 @@
+{
+  "default": {
+    "tiles": {
+      "asphalt": 2,
+      "metal": 5,
+      "tile": 7
+    },
+    "gutter": {
+      "none": 0,
+      "basic": 10
+    },
+    "trim": {
+      "none": 0,
+      "standard": 5
+    }
+  }
+}
